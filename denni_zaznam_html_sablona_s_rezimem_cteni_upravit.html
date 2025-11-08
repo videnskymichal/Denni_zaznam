@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Denní záznam</title>
+  <style>
+    :root{
+      --bg:#0b0c10;        /* tmavý, nerušivý podklad */
+      --panel:#111318;     /* panely */
+      --muted:#9aa3ad;     /* sekundární text */
+      --text:#e6e9ef;      /* hlavní text */
+      --brand:#5b9cff;     /* akcent */
+      --ok:#22c55e;        /* uložené */
+      --warn:#f59e0b;      /* neuložené */
+      --danger:#ef4444;    /* zrušení */
+      --border: #22252b;
+      --input:#0f1116;
+      --radius: 16px;
+      --shadow: 0 8px 24px rgba(0,0,0,.25);
+    }
+    html,body{height:100%}
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background:radial-gradient(1200px 600px at 100% 0%, #10131a 0%, var(--bg) 50%), var(--bg);
+      color:var(--text);
+    }
+    .app{max-width:980px;margin:24px auto;padding:0 16px}
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.03), transparent 60%), var(--panel);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    header{
+            display:flex; align-items:center; justify-content:space-between;
+            padding:16px 18px; border-bottom:1px solid var(--border);
+            position:sticky; top:0; backdrop-filter: blur(6px);
+            background: linear-gradient(180deg, rgba(10,12,16,.7),          rgba(10,12,16,.2));
+            z-index: 1000; pointer-events:auto;
+    }
+    .title{display:flex;gap:10px;align-items:center}
+    .title h1{font-size:18px; margin:0}
+    .subtitle{color:var(--muted); font-size:12px}
+    .actions{
+            display:flex; gap:8px; align-items:center;
+            position:relative; z-index:1001; pointer-events:auto;
+            }
+    button, .ghost{
+      border:1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      color:var(--text); padding:8px 12px; border-radius:10px; cursor:pointer;
+      transition: transform .04s ease, background .2s ease, border-color .2s ease;
+    }
+    button:hover{border-color:#2a2f39}
+    button:active{transform:translateY(1px)}
+    .primary{background: linear-gradient(180deg, rgba(91,156,255,.25), rgba(91,156,255,.15)); border-color:#334155}
+    .success{background: linear-gradient(180deg, rgba(34,197,94,.25), rgba(34,197,94,.15)); border-color:#1f5131}
+    .danger{background: linear-gradient(180deg, rgba(239,68,68,.25), rgba(239,68,68,.15)); border-color:#6b1d1d}
+
+    form{padding:20px; display:grid; grid-template-columns: 1fr 1fr; gap:16px}
+    .full{grid-column:1/-1}
+    label{display:block; font-size:12px; color:var(--muted); margin-bottom:6px}
+    input, textarea, select{
+      width:100%; box-sizing:border-box; color:var(--text);
+      background:var(--input); border:1px solid var(--border); border-radius:12px; padding:12px 14px;
+      font:inherit; outline:none; min-height:42px;
+    }
+    textarea{min-height:140px; resize:vertical}
+    input[disabled], textarea[disabled], select[disabled]{opacity:.85; filter:saturate(.85)}
+
+    .footer{
+      display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 18px; border-top:1px solid var(--border);
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+    }
+    .status{display:flex; align-items:center; gap:10px; font-size:12px; color:var(--muted)}
+    .dot{width:10px; height:10px; border-radius:50%}
+    .dot.ok{background:var(--ok)}
+    .dot.warn{background:var(--warn)}
+
+    .notice{
+      margin:12px 18px 0; padding:10px 12px; border:1px dashed #2a2f39; color:var(--muted); border-radius:10px; font-size:12px
+    }
+    .right{display:flex; gap:8px}
+    .small{font-size:12px}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card" id="card">
+      <header>
+        <div class="title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M5 7a2 2 0 0 1 2-2h6l4 4v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="1.5"/><path d="M13 5v3a2 2 0 0 0 2 2h3" stroke="currentColor" stroke-width="1.5"/></svg>
+          <div>
+            <h1>Denní záznam</h1>
+            <div class="subtitle" id="subtitle">Režim: Čtení</div>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="editBtn" class="primary" type="button" title="Přepnout na úpravy" onclick="toggleEdit()">✏️ Upravit</button>
+          <button id="exportBtn" type="button" title="Export do JSON">⬇️ Export</button>
+          <label class="ghost small" title="Import z JSON">
+            ⬆️ Import
+            <input id="importInput" type="file" accept="application/json" style="display:none"/>
+          </label>
+        </div>
+      </header>
+
+      <div class="notice" id="notice">Tip: Primárně se záznam otevírá jen pro čtení. Klikni na <b>Upravit</b>, proveď změny, poté <b>Uložit</b> (Ctrl/Cmd+S) nebo <b>Zrušit</b>.</div>
+
+      <form id="form">
+        <div class="full">
+          <label for="date">Datum</label>
+          <input id="date" name="date" type="date"/>
+        </div>
+
+        <div>
+          <label for="mood">Jak se chci dnes cítit?</label>
+          <input id="mood" name="mood" placeholder="např. Produktivní a veselý" />
+        </div>
+        <div>
+          <label for="focus">Hlavní cíl dne</label>
+          <input id="focus" name="focus" placeholder="1 klíčová věc" />
+        </div>
+
+        <div>
+          <label for="sleep">Spánek – délka (hh:mm)</label>
+          <input id="sleep" name="sleep" placeholder="8:00" pattern="^([0-1]?\d|2[0-3]):[0-5]\d$" />
+        </div>
+        <div>
+          <label for="sleepScore">Spánek – hodnocení (0–100)</label>
+          <input id="sleepScore" name="sleepScore" type="number" min="0" max="100" />
+        </div>
+
+        <div class="full">
+          <label for="morning">Ranní kotva (poznámky)</label>
+          <textarea id="morning" name="morning" placeholder="Dýchání, úsměv, zamyšlení, protažení…"></textarea>
+        </div>
+
+        <div class="full">
+          <label for="notes">Poznámky</label>
+          <textarea id="notes" name="notes" placeholder="Volné psaní, postřehy…"></textarea>
+        </div>
+        
+        <!-- 🧩 Nové bloky -->
+
+        <div class="full">
+          <label>Ranní kotva – checklist</label>
+          <div style="display:grid;grid-template-columns:repeat(5, minmax(120px,1fr));gap:8px">
+            <label><input type="checkbox" name="mk_dychani" value="1"> Dýchání</label>
+            <label><input type="checkbox" name="mk_usmev" value="1"> Úsměv</label>
+            <label><input type="checkbox" name="mk_zamysleni" value="1"> Zamyšlení</label>
+            <label><input type="checkbox" name="mk_protazeni" value="1"> Protažení</label>
+            <label><input type="checkbox" name="mk_snidane" value="1"> Snídaně</label>
+          </div>
+        </div>
+
+        <div>
+          <label for="water">Hydratace (sklenice/den)</label>
+          <input id="water" name="water" type="number" min="0" step="1" placeholder="0" />
+        </div>
+        <div>
+          <label for="caffeine">Kofein (počet káv/čajů)</label>
+          <input id="caffeine" name="caffeine" type="number" min="0" step="1" placeholder="0" />
+        </div>
+
+        <div>
+          <label for="activityType">Pohyb – typ</label>
+          <select id="activityType" name="activityType">
+            <option value="">—</option>
+            <option>Běh</option>
+            <option>Chůze</option>
+            <option>Jóga</option>
+            <option>Silový trénink</option>
+            <option>Jiné</option>
+          </select>
+        </div>
+        <div>
+          <label for="activityDuration">Pohyb – doba (min)</label>
+          <input id="activityDuration" name="activityDuration" type="number" min="0" step="1" placeholder="0" />
+        </div>
+
+        <div class="full">
+          <label>Jídlo</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <label for="meal_breakfast" style="margin-top:0">Snídaně</label>
+              <input id="meal_breakfast" name="meal_breakfast" placeholder="co a kdy" />
+            </div>
+            <div>
+              <label for="meal_snack1">Svačina</label>
+              <input id="meal_snack1" name="meal_snack1" placeholder="co a kdy" />
+            </div>
+            <div>
+              <label for="meal_lunch">Oběd</label>
+              <input id="meal_lunch" name="meal_lunch" placeholder="co a kdy" />
+            </div>
+            <div>
+              <label for="meal_snack2">Svačina 2</label>
+              <input id="meal_snack2" name="meal_snack2" placeholder="co a kdy" />
+            </div>
+            <div class="full">
+              <label for="meal_dinner">Večeře</label>
+              <input id="meal_dinner" name="meal_dinner" placeholder="co a kdy" />
+            </div>
+          </div>
+        </div>
+
+        <div class="full">
+          <label for="tasks">Úkoly dne (rychlý seznam)</label>
+          <textarea id="tasks" name="tasks" placeholder="- Zavolat…
+- Běh 30 min…
+- Dokončit …"></textarea>
+        </div>
+
+        <div>
+          <label for="steps">Kroky (Garmin)</label>
+          <input id="steps" name="steps" type="number" min="0" step="1" placeholder="0" />
+        </div>
+        <div>
+          <label for="bodybattery">Body Battery (Garmin)</label>
+          <input id="bodybattery" name="bodybattery" type="number" min="0" max="100" step="1" placeholder="–" />
+        </div>
+        <div>
+          <label for="stress">Stres (Garmin)</label>
+          <input id="stress" name="stress" type="number" min="0" max="100" step="1" placeholder="–" />
+        </div>
+        <div>
+          <label for="hrv">HRV (ms)</label>
+          <input id="hrv" name="hrv" type="number" min="0" step="1" placeholder="–" />
+        </div>
+
+        <div class="full">
+          <label for="evening">Večerní reflexe</label>
+          <textarea id="evening" name="evening" placeholder="Co se povedlo? Co zlepšit? Za co jsem vděčný?"></textarea>
+        </div>
+
+      </form>
+
+      <div class="footer">
+        <div class="status">
+          <span class="dot ok" id="stateDot"></span>
+          <span id="saveState">Uloženo</span>
+        </div>
+        <div class="right">
+          <button id="cancelBtn" class="danger hidden" type="button">Zrušit</button>
+          <button id="saveBtn" class="success hidden" type="button" title="Uložit (Ctrl/Cmd+S)">Uložit</button>
+        </div>
+    </div>        <!-- /footer -->
+    </div>        <!-- /card -->
+    </div>        <!-- /app -->
+
+  <!-- Záložní plovoucí přepínač režimu (vysoký z-index) -->
+  <button id="fabEdit" title="Přepnout Čtení/Úpravy (E)" aria-label="Přepnout režim"
+          style="position:fixed; right:16px; bottom:16px; z-index:9999; border:1px solid var(--border); padding:10px 14px; border-radius:999px; background:linear-gradient(180deg, rgba(91,156,255,.25), rgba(91,156,255,.15)); color:var(--text); cursor:pointer; box-shadow: var(--shadow);">
+    ✏️ Upravit
+  </button>
+
+  <script>
+  (function(){
+    'use strict';
+
+    // --- DOM odkazy ---
+    const form = document.getElementById('form');
+    const editBtn = document.getElementById('editBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const subtitle = document.getElementById('subtitle');
+    const saveState = document.getElementById('saveState');
+    const stateDot = document.getElementById('stateDot');
+    const importInput = document.getElementById('importInput');
+    const exportBtn = document.getElementById('exportBtn');
+    const notice = document.getElementById('notice');
+
+    const STORAGE_KEY = 'denni-zaznam-v1';
+
+    let editing = false;
+    let pristineSnapshot = null; // pro Zrušit
+    let dirty = false;
+
+    // --- Utility ---
+    function disableForm(flag){
+      Array.from(form.elements).forEach(el => { el.disabled = !!flag; });
+    }
+
+    function getData(){
+      const out = {};
+      Array.from(form.elements).forEach(el => {
+        if (!el.name) return;
+        if (el.type === 'checkbox' || el.type === 'radio') {
+          out[el.name] = el.checked ? '1' : '0';
+        } else {
+          out[el.name] = el.value ?? '';
+        }
+      });
+      return out;
+    }
+
+    function setData(data){
+      // reset
+      Array.from(form.elements).forEach(el => {
+        if (!el.name) return;
+        if (el.type === 'checkbox' || el.type === 'radio') {
+          el.checked = false;
+        } else {
+          el.value = '';
+        }
+      });
+      // apply
+      Object.entries(data || {}).forEach(([name, value]) => {
+        const el = form.elements.namedItem(name);
+        if (!el) return;
+        if (el.type === 'checkbox' || el.type === 'radio') {
+          el.checked = (value === true || value === '1' || value === 1 || value === 'true');
+        } else {
+          el.value = value ?? '';
+        }
+      });
+    }
+
+    function setDirty(isDirty){
+      dirty = !!isDirty;
+      saveState.textContent = dirty ? 'Neuložené změny' : 'Uloženo';
+      stateDot.className = 'dot ' + (dirty ? 'warn' : 'ok');
+    }
+
+    function setEditMode(on){
+      editing = !!on;
+      window.__editing = editing;
+      subtitle.textContent = 'Režim: ' + (editing ? 'Úpravy' : 'Čtení');
+      disableForm(!editing);
+      saveBtn.classList.toggle('hidden', !editing);
+      cancelBtn.classList.toggle('hidden', !editing);
+      editBtn.textContent = editing ? 'Zamknout' : '✏️ Upravit';
+      editBtn.setAttribute('aria-pressed', String(editing));
+      if (notice) notice.classList.toggle('hidden', editing);
+      if (editing){
+        pristineSnapshot = getData();
+        setDirty(false);
+        const first = form.querySelector('input,textarea,select');
+        if (first) first.focus();
+      } else {
+        pristineSnapshot = null;
+        setDirty(false);
+      }
+    }
+
+    function save(){
+      const data = getData();
+      const payload = { data, savedAt: Date.now() };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      setDirty(false);
+      saveState.textContent = 'Uloženo ' + new Date(payload.savedAt).toLocaleTimeString('cs-CZ', {hour12:false});
+      setEditMode(false);
+    }
+
+    function revert(){
+      if (pristineSnapshot) setData(pristineSnapshot);
+      setDirty(false);
+      setEditMode(false);
+    }
+
+    function exportJSON(){
+      const payload = { version: 1, ...getData() };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const today = new Date().toISOString().slice(0,10);
+      a.href = url; a.download = `denni-zaznam_${today}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function importJSON(file){
+      const reader = new FileReader();
+      reader.onload = function(){
+        try{
+          const raw = JSON.parse(reader.result);
+          const data = (raw && typeof raw === 'object' && 'data' in raw) ? raw.data : raw;
+          setData(data);
+          setEditMode(true);
+          setDirty(true);
+        } catch(e){
+          alert('Soubor se nepodařilo načíst: ' + e.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // --- Listenery ---
+    function wireClicks(){
+      // hlavní tlačítko
+      if (editBtn){
+        editBtn.onclick = function(e){ e.preventDefault(); e.stopPropagation(); setEditMode(!editing); };
+        editBtn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); setEditMode(!editing); });
+      }
+      // plovoucí tlačítko
+      const fab = document.getElementById('fabEdit');
+      if (fab){
+        fab.onclick = function(e){ e.preventDefault(); e.stopPropagation(); setEditMode(!editing); };
+      }
+      // delegace pro jistotu
+      document.addEventListener('click', function(e){
+        const t = e.target;
+        if (!t) return;
+        if (t.id === 'editBtn' || t.id === 'fabEdit'){
+          e.preventDefault(); e.stopPropagation(); setEditMode(!editing);
+        }
+      }, true);
+    }
+
+    wireClicks();
+
+    saveBtn.addEventListener('click', save);
+    cancelBtn.addEventListener('click', revert);
+    exportBtn.addEventListener('click', exportJSON);
+    importInput.addEventListener('change', function(e){
+      const f = e.target.files && e.target.files[0];
+      if (f) importJSON(f);
+      e.target.value = '';
+    });
+
+    form.addEventListener('input', function(){ if (editing) setDirty(true); });
+
+// Klávesové zkratky – jen Uložit a Zpět (už žádná klávesa „E“)
+window.addEventListener('keydown', function(e){
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){
+    e.preventDefault();
+    if (editing) save();
+  }
+  if (e.key === 'Escape' && editing){
+    revert();
+  }
+});
+
+    window.addEventListener('beforeunload', function(e){
+      if (dirty){ e.preventDefault(); e.returnValue = ''; }
+    });
+
+    // --- Init ---
+    (function init(){
+      disableForm(true);
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved){
+        try{
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.data) {
+            setData(parsed.data);
+            saveState.textContent = 'Uloženo ' + new Date(parsed.savedAt).toLocaleTimeString('cs-CZ', {hour12:false});
+          }
+        } catch(_){}
+      } else {
+        const today = new Date().toISOString().slice(0,10);
+        const dateEl = form.elements.namedItem('date');
+        if (dateEl) dateEl.value = today;
+      }
+      setEditMode(false);
+    })();
+
+    // volitelné: globální přepínač, pokud by někdo volal z konzole
+    window.toggleEdit = function(){ setEditMode(!editing); };
+  })();
+</script>
+</body>
+</html>
